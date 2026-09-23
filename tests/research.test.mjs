@@ -1,0 +1,20 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createProject, sampleProject, canonical, addInterview, evidenceAt, validEvidence, stats, findingIssues, insightIssues, invalidate, report, restoreProject, locateQuote } from '../lib/research.ts';
+
+test('同一受访者多份访谈及反例独立计数',()=>{const p=sampleProject();assert.deepEqual(stats(p,p.findings[0]),{support:2,counter:1,quotes:4,total:3,pending:0});});
+test('重复材料即使换文件名也拒绝',()=>{const p=sampleProject();assert.throws(()=>addInterview(p,'副本',p.interviews[0].text,'P99'),/相同文本/);});
+test('规范化只统一换行及BOM，保留空格与原句',()=>assert.equal(canonical('\uFEFF A\r\nB\rC '),' A\nB\nC '));
+test('中文与emoji精确定位采用同一UTF16索引',()=>{let p=createProject();p=addInterview(p,'a','受访者：😀这一步很难。','P01');const d=p.interviews[0],s=d.text.indexOf('😀'),e=evidenceAt(p,d.id,s,d.text.length);assert.equal(e.quote,'😀这一步很难。');assert.ok(validEvidence(p,e));});
+test('伪造、改写及越界引用不会通过',()=>{const p=sampleProject(),e=p.evidence[0];assert.equal(validEvidence(p,{...e,quote:e.quote+'！'}),false);assert.equal(validEvidence(p,{...e,end:99999}),false);assert.throws(()=>evidenceAt(p,e.interviewId,-1,100));});
+test('重复选取相同原文复用证据身份',()=>{const p=sampleProject(),e=p.evidence[0];assert.equal(evidenceAt(p,e.interviewId,e.start,e.end).id,e.id);});
+test('未知说话人和未标注受访者不计为有效证据',()=>{const p=sampleProject(),e=p.evidence[0];assert.equal(validEvidence(p,{...e,speaker:'unknown'}),false);p.interviews[0].participant='';assert.equal(validEvidence(p,e),false);});
+test('歧义引文需人工定位',()=>{let p=createProject();p=addInterview(p,'a','很好。\n很好。','P01');assert.throws(()=>locateQuote(p.interviews[0],'很好。'),/多处/);});
+test('原文版本变化使证据和发现失效',()=>{const p=sampleProject();p.interviews[0].version++;assert.equal(validEvidence(p,p.evidence[0]),false);assert.ok(findingIssues(p,p.findings[0]).length);});
+test('背景变更撤销所有下游确认',()=>{const p=sampleProject();p.findings[0].status='confirmed';assert.equal(invalidate(p).findings[0].status,'stale');});
+test('正式报告不包含草稿，正式引用可追溯',()=>{const p=sampleProject();assert.throws(()=>report(p),/正式报告需要/);p.findings[0].status='confirmed';const md=report(p);assert.ok(md.includes('支持 2 人，反例 1 人'));assert.ok(md.includes(p.evidence[0].quote));assert.ok(!md.includes('#### 发现：'+p.findings[1].summary));assert.ok(md.includes('合成示例'));});
+test('不允许已确认条目中的失效引用进入正式报告',()=>{const p=sampleProject();p.findings[0].status='confirmed';p.evidence[0].quote='并不存在';assert.throws(()=>report(p),/所有引用/);});
+test('洞察需要已确认且有效的发现',()=>{const p=sampleProject();const i={id:'i',question:p.questions[0],findingIds:[p.findings[0].id],interpretation:'可能缺少可见反馈',judgment:'',opportunity:'',hypothesis:'',validation:'',limitations:'',status:'draft',source:'manual'};assert.ok(insightIssues(p,i).length);p.findings[0].status='confirmed';assert.equal(insightIssues(p,i).length,0);});
+test('备份往返保持原文、计数和身份',()=>{const p=sampleProject(),r=restoreProject(JSON.parse(JSON.stringify(p)));assert.equal(r.interviews[0].text,p.interviews[0].text);assert.deepEqual(stats(r,r.findings[0]),stats(p,p.findings[0]));});
+test('损坏关系和重复标识的备份拒绝恢复',()=>{const p=sampleProject();p.findings[0].links[0].evidenceId='missing';assert.throws(()=>restoreProject(p),/不存在的证据/);const q=sampleProject();q.evidence.push(q.evidence[0]);assert.throws(()=>restoreProject(q),/重复标识/);});
+test('空文、乱码和超限文本明确拒绝',()=>{const p=createProject();assert.throws(()=>addInterview(p,'a',' '),/文本为空/);assert.throws(()=>addInterview(p,'a','\ufffd'),/乱码/);assert.throws(()=>addInterview(p,'a','x'.repeat(20001)),/20,000/);});
