@@ -1,6 +1,10 @@
 # 言析 Insight
 
-面向工作场景的用户访谈研究工作台。需求基线见交付目录的《言析Insight_MVP_PRD.md》。
+面向工作场景的用户访谈研究工作台。它帮助研究员、产品经理与设计师从访谈准备、材料整理、跨受访者分析走到证据核对和洞察报告导出。
+
+- 在线体验：[yanxi-insight-portfolio.piaoyxyeah.chatgpt.site](https://yanxi-insight-portfolio.piaoyxyeah.chatgpt.site)
+- 产品需求文档：[docs/言析Insight_MVP_PRD.md](docs/言析Insight_MVP_PRD.md)
+- 验收记录：[docs/验收记录.md](docs/验收记录.md)
 
 ## 使用流程
 1. 新建项目，整理背景、目标、对象及研究问题，可上传或粘贴访谈大纲。
